@@ -1,0 +1,24 @@
+{
+  "name": "mote-phat",
+  "version": "1.0.0",
+  "description": "A native library for the Pimoroni Mote Phat",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brian-burton/node-mote-phat.git"
+  },
+  "keywords": [
+    "pimoroni",
+    "mote",
+    "phat"
+  ],
+  "author": "Brian Burton",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/brian-burton/node-mote-phat/issues"
+  },
+  "homepage": "https://github.com/brian-burton/node-mote-phat#readme"
+}
