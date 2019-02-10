@@ -39,17 +39,22 @@ var _gamma_table = [
     222,224,227,229,231,233,235,237,239,241,244,246,248,250,252,255]
 
 var _white_point = {r:1, g:1, b:1};
-var pixels = new Array(NUM_CHANNELS);
-//  .fill({length:4}, u => [0, 0, 0, DEFAULT_BRIGHTNESS]));
-var channels = Array(NUM_CHANNELS).fill({pixels: NUM_PIXELS_PER_CHANNEL, gamma_correction: false});
+var channels = new Array(NUM_CHANNELS).fill(Object.create({pixels: NUM_PIXELS_PER_CHANNEL, gamma_correction: false}));
 var _gpio_setup = false;
 var _clear_on_exit = false;
 
+var pixels = new Array(NUM_CHANNELS);
+//I had a hell of a time creating deep copies of the pixel arrays I might change them to objects...
 for (var i = 0; i < NUM_CHANNELS; i++) {
     pixels[i] = new Array(NUM_PIXELS_PER_CHANNEL);
     for (var j = 0; j < NUM_PIXELS_PER_CHANNEL; j++) {
         pixels[i][j] = Array.from([0, 0, 0, DEFAULT_BRIGHTNESS]);
     }
+}
+
+// rather than error checking values, I can use this just to limit them to a range
+function constrain(low, val, high) {
+    return min(high, max(low, val));
 }
 
 function _exit() {
@@ -61,7 +66,7 @@ function _exit() {
 }
 
 function setWhitePoint(red, green, blue) {
-    _white_point = {r:red, g:green, b:blue};
+    _white_point = {r:constrain(0,red,1), g:constrain(0,green,1), b:constrain(0,blue,1)};
 }
 
 function _set_gamma_table(table) {
@@ -79,7 +84,7 @@ function getPixelCount(channel) {
 }
 
 function setBrightness(brightness) {
-    pixels.forEach(ch => ch.forEach(px => px[3] = brightness));
+    pixels.forEach(ch => ch.forEach(px => px[3] = constrain(0,brightness,1)));
 }
 
 function clearChannel(channel) {
@@ -102,9 +107,7 @@ function _select_channel(channel) {
 function _write_byte(byte) {
     data = byte.toString(2).padStart(8,"0");
     for (var i=0; i<8; i++) {
-//        console.log(i + ": " + data[i]);
         DAT_PIN.digitalWrite(parseInt(data[i]));
-//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
@@ -113,7 +116,6 @@ function _write_byte(byte) {
 function _eof() {
     DAT_PIN.digitalWrite(0);
     for (var i = 0; i < 42; i++) {
-//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
@@ -122,21 +124,21 @@ function _eof() {
 function _sof() {
     DAT_PIN.digitalWrite(0);
     for (var i = 0; i < 32; i++) {
-//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
 }
 
+// I reckon this can be better - an ArrayBuffer clocked-in once rather than byte-by-byte, maybe.
 function show() {
     for (var i = 0; i < NUM_CHANNELS; i++) {
         _select_channel(i);
         gamma = _gamma_table;
         _sof();
         pixels[i].forEach(px => {
-            var r = (px[0] * gamma[px[0]] * px[3] * _white_point.r) & 0xff;
-            var g = (px[1] * gamma[px[1]] * px[3] * _white_point.g) & 0xff;
-            var b = (px[2] * gamma[px[2]] * px[3] * _white_point.b) & 0xff;
+            var r = constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255);
+            var g = constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255);
+            var b = constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255);
             _write_byte(LED_SOF | LED_MAX_BR);
             _write_byte(b);
             _write_byte(g);
@@ -146,7 +148,11 @@ function show() {
     }
 }
 
+//There's possible unexpected behaviour in here if 'channel' is an invalid value
 function setAll(r, g, b, brightness=null, channel=null) {
+    r = constrain(0,r,255);
+    g = constrain(0,g,255);
+    b = constrain(0,b,255);
     if (channel === null) {
         for (var i = 0; i < NUM_CHANNELS; i++) {
             for (var j = 0; j < getPixelCount(i); j++) {
@@ -166,13 +172,12 @@ function getPixel(channel, index) {
 }
 
 function setPixel(channel, index, r, g, b, brightness=null) {
-//    console.log(pixels[channel][index]);
     if (brightness != null) {
-        pixels[channel][index][3] = min(1,max(0,brightness));
+        pixels[channel][index][3] = constrain(0,brightness,1);
     }
-    pixels[channel][index][0] = r;
-    pixels[channel][index][1] = g;
-    pixels[channel][index][2] = b;
+    pixels[channel][index][0] = constrain(0,r,255);
+    pixels[channel][index][1] = constrain(0,g,255);
+    pixels[channel][index][2] = constrain(0,b,255);
 }
 
 function setClearOnExit(value=true) {
