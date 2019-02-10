@@ -114,8 +114,8 @@ function _write_byte(byte) {
 }
 
 function _eof() {
-    DAT_PIN.digitalWrite(0);
-    for (var i = 0; i < 42; i++) {
+    DAT_PIN.digitalWrite(1);
+    for (var i = 0; i < 32; i++) {
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
@@ -129,7 +129,28 @@ function _sof() {
     }
 }
 
-// I reckon this can be better - an ArrayBuffer clocked-in once rather than byte-by-byte, maybe.
+// I reckon this can be better - an ArrayBuffer(72) clocked-in using an SPI
+// library like pi-spi rather than bit-banging, maybe.
+// The array would be like this for every channel, and fed MSB first into the channel:
+// 0000 0000 0000 0000 0000 0000 0000 0000
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 bbbb bbbb gggg gggg rrrr rrrr
+// 1111 1111 1111 1111 1111 1111 1111 1111
+
 function show() {
     for (var i = 0; i < NUM_CHANNELS; i++) {
         _select_channel(i);
@@ -163,6 +184,26 @@ function setAll(r, g, b, brightness=null, channel=null) {
     else if (0<=channel && channel < NUM_CHANNELS) {
         for (var i = 0; i < getPixelCount(channel); i++) {
             setPixel(channel, i, r, g, b, brightness);
+        }
+    }
+}
+
+function setAllByChannel(r, g, b, brightness=null, channel) {
+    if (0 <= channel && channel < NUM_CHANNELS) {
+        for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
+            pixels[channel][index][0] = constrain(0,r,255);
+            pixels[channel][index][1] = constrain(0,g,255);
+            pixels[channel][index][2] = constrain(0,b,255);
+        }
+    }
+}
+
+function setAllByIndex(r, g, b, brightness=null, index) {
+    if (0 <= index && index < NUM_PIXELS_PER_CHANNEL) {
+        for (var channel = 0; channel < NUM_PIXELS_PER_CHANNEL; channel++) {
+            pixels[channel][index][0] = constrain(0,r,255);
+            pixels[channel][index][1] = constrain(0,g,255);
+            pixels[channel][index][2] = constrain(0,b,255);
         }
     }
 }
