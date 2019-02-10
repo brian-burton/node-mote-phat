@@ -2,16 +2,16 @@
 const Gpio = require('pigpio').Gpio;
 
 // Constants
-const DAT_PIN = new Gpio(10, {mode: Gpio.OUTPUT});
-const CLK_PIN = new Gpio(11, {mode: Gpio.OUTPUT});
+const DAT_PIN = new Gpio(10, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_DOWN});
+const CLK_PIN = new Gpio(11, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_DOWN});
 const LED_SOF = parseInt("11100000",2);
 const LED_MAX_BR = parseInt("00011111",2);
 
 const CHANNEL_PINS = [
-    new Gpio(8, {mode: Gpio.OUTPUT}),
-    new Gpio(7, {mode: Gpio.OUTPUT}),
-    new Gpio(25, {mode: Gpio.OUTPUT}),
-    new Gpio(24, {mode: Gpio.OUTPUT})
+    new Gpio(8, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_UP}),
+    new Gpio(7, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_UP}),
+    new Gpio(25, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_UP}),
+    new Gpio(24, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_UP})
 ];
 
 const NUM_PIXELS_PER_CHANNEL = 16;
@@ -39,16 +39,24 @@ var _gamma_table = [
     222,224,227,229,231,233,235,237,239,241,244,246,248,250,252,255]
 
 var _white_point = {r:1, g:1, b:1};
-var pixels = Array(NUM_CHANNELS).fill(Array(NUM_PIXELS_PER_CHANNEL).fill([0, 0, 0, DEFAULT_BRIGHTNESS]));
+var pixels = new Array(NUM_CHANNELS);
+//  .fill({length:4}, u => [0, 0, 0, DEFAULT_BRIGHTNESS]));
 var channels = Array(NUM_CHANNELS).fill({pixels: NUM_PIXELS_PER_CHANNEL, gamma_correction: false});
 var _gpio_setup = false;
 var _clear_on_exit = false;
+
+for (var i = 0; i < NUM_CHANNELS; i++) {
+    pixels[i] = new Array(NUM_PIXELS_PER_CHANNEL);
+    for (var j = 0; j < NUM_PIXELS_PER_CHANNEL; j++) {
+        pixels[i][j] = Array.from([0, 0, 0, DEFAULT_BRIGHTNESS]);
+    }
+}
 
 function _exit() {
     if (_clear_on_exit) {
         clear();
         show();
-        //Do I need an equivalent to GPIO.cleanup()?    
+        //Do I need an equivalent to GPIO.cleanup()?
     }
 }
 
@@ -75,7 +83,7 @@ function setBrightness(brightness) {
 }
 
 function clearChannel(channel) {
-    pixels[channel].forEach(px => px.fill(0,0,2));
+    pixels[channel].forEach(px => px.fill(0,0,3));
 }
 
 function clear() {
@@ -92,10 +100,12 @@ function _select_channel(channel) {
 }
 
 function _write_byte(byte) {
+    data = byte.toString(2).padStart(8,"0");
     for (var i=0; i<8; i++) {
-        DAT_PIN.digitalWrite(byte & 0b10000000);
+//        console.log(i + ": " + data[i]);
+        DAT_PIN.digitalWrite(parseInt(data[i]));
+//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
-        byte << 1;
         CLK_PIN.digitalWrite(0);
     }
 }
@@ -103,6 +113,7 @@ function _write_byte(byte) {
 function _eof() {
     DAT_PIN.digitalWrite(0);
     for (var i = 0; i < 42; i++) {
+//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
@@ -111,6 +122,7 @@ function _eof() {
 function _sof() {
     DAT_PIN.digitalWrite(0);
     for (var i = 0; i < 32; i++) {
+//        CLK_PIN.trigger(1,1);
         CLK_PIN.digitalWrite(1);
         CLK_PIN.digitalWrite(0);
     }
@@ -154,6 +166,7 @@ function getPixel(channel, index) {
 }
 
 function setPixel(channel, index, r, g, b, brightness=null) {
+//    console.log(pixels[channel][index]);
     if (brightness != null) {
         pixels[channel][index][3] = min(1,max(0,brightness));
     }
@@ -177,5 +190,7 @@ module.exports = {
     setAll,
     getPixel,
     setPixel,
-    setClearOnExit
+    setClearOnExit,
+    pixels,
+    CHANNEL_PINS
 }
