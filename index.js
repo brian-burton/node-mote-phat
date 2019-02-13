@@ -54,7 +54,7 @@ for (var i = 0; i < NUM_CHANNELS; i++) {
 
 // rather than error checking values, I can use this just to limit them to a range
 function constrain(low, val, high) {
-    return min(high, max(low, val));
+    return Math.min(high, Math.max(low, val));
 }
 
 function _exit() {
@@ -188,7 +188,7 @@ function setAll(r, g, b, brightness=null, channel=null) {
     }
 }
 
-function setAllByChannel(r, g, b, brightness=null, channel) {
+function setAllByChannel(channel, r, g, b, brightness=null) {
     if (0 <= channel && channel < NUM_CHANNELS) {
         for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
             pixels[channel][index][0] = constrain(0,r,255);
@@ -198,9 +198,9 @@ function setAllByChannel(r, g, b, brightness=null, channel) {
     }
 }
 
-function setAllByIndex(r, g, b, brightness=null, index) {
+function setAllByIndex(index, r, g, b, brightness=null) {
     if (0 <= index && index < NUM_PIXELS_PER_CHANNEL) {
-        for (var channel = 0; channel < NUM_PIXELS_PER_CHANNEL; channel++) {
+        for (var channel = 0; channel < NUM_CHANNELS; channel++) {
             pixels[channel][index][0] = constrain(0,r,255);
             pixels[channel][index][1] = constrain(0,g,255);
             pixels[channel][index][2] = constrain(0,b,255);
@@ -234,6 +234,8 @@ module.exports = {
     clear,
     show,
     setAll,
+    setAllByChannel,
+    setAllByIndex,
     getPixel,
     setPixel,
     setClearOnExit,
