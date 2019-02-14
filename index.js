@@ -1,8 +1,8 @@
 module.exports = function() {
-    // Imports
+// Imports
     const Gpio = require('pigpio').Gpio;
 
-    // Constants
+// Constants
     const DAT_PIN = new Gpio(10, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_DOWN});
     const CLK_PIN = new Gpio(11, {mode: Gpio.OUTPUT, pullUpDown: Gpio.PUD_DOWN});
     const LED_SOF = parseInt("11100000",2);
@@ -18,10 +18,10 @@ module.exports = function() {
     const NUM_PIXELS_PER_CHANNEL = 16;
     const NUM_CHANNELS = 4;
 
-    const DEFAULT_BRIGHTNESS = 0.2;
+    const DEFAULT_BRIGHTNESS = 0.1;
 
-    // Variables
-    var _gamma_table = [
+// Variables
+    var gammaTable = [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
         2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
@@ -40,48 +40,43 @@ module.exports = function() {
         222,224,227,229,231,233,235,237,239,241,244,246,248,250,252,255]
 
     var _white_point = {r:1, g:1, b:1};
+
+// Not sure if this is shallow copied - look out for odd errors.
     var channels = new Array(NUM_CHANNELS).fill(Object.create({pixels: NUM_PIXELS_PER_CHANNEL, gamma_correction: false}));
     var _gpio_setup = false;
     var _clear_on_exit = false;
 
     var pixels = new Array(NUM_CHANNELS);
-    //I had a hell of a time creating deep copies of the pixel arrays I might change them to objects...
+// I had a hell of a time creating deep copies of the pixel arrays I might change them to objects...
     for (var i = 0; i < NUM_CHANNELS; i++) {
         pixels[i] = new Array(NUM_PIXELS_PER_CHANNEL);
         for (var j = 0; j < NUM_PIXELS_PER_CHANNEL; j++) {
-            pixels[i][j] = Array.from([0, 0, 0, DEFAULT_BRIGHTNESS]);
+            pixels[i][j] = Array.of(0, 0, 0, DEFAULT_BRIGHTNESS);
+//            pixels[i][j] = Array.from([0, 0, 0, DEFAULT_BRIGHTNESS]);
         }
     }
 
-    // The following functions won't be exported
+// The following functions won't be exported
 
-    // rather than error checking values, I can use this just to limit them to a range
-    function _constrain(low, val, high) {
+// rather than error checking values, I can use this just to limit them to a range
+    function constrain(low, val, high) {
         return Math.min(high, Math.max(low, val));
     }
 
-    function _exit() {
-        if (_clear_on_exit) {
-            clear();
-            show();
-            //Do I need an equivalent to GPIO.cleanup()?
-        }
-    }
+//    function setGammaTable(table) {
+//        if (Array.isArray(table) && table.length == 256) {
+//            gammaTable = table;
+//        }
+//    }
 
-    function _set_gamma_table(table) {
-        if (Array.isArray(table) && table.length == 256) {
-            _gamma_table = table;
-        }
-    }
-
-    function _select_channel(channel) {
+    function selectChannel(channel) {
         for (var i = 0; i < NUM_CHANNELS; i++) {
             if (i == channel) { CHANNEL_PINS[i].digitalWrite(0)}
             else {CHANNEL_PINS[i].digitalWrite(1)}
         }
     }
 
-    function _write_byte(byte) {
+    function writeByte(byte) {
         try{
             data = byte.toString(2).padStart(8,"0");
             for (var i=0; i<8; i++) {
@@ -89,13 +84,12 @@ module.exports = function() {
                 CLK_PIN.digitalWrite(1);
                 CLK_PIN.digitalWrite(0);
             }
-        }
-        catch(e) {
+        } catch(e) {
             console.log(byte + ": " + e);
         }
     }
 
-    function _eof() {
+    function writeFooter() {
         DAT_PIN.digitalWrite(1);
         for (var i = 0; i < 32; i++) {
             CLK_PIN.digitalWrite(1);
@@ -103,7 +97,7 @@ module.exports = function() {
         }
     }
 
-    function _sof() {
+    function writeHeader() {
         DAT_PIN.digitalWrite(0);
         for (var i = 0; i < 32; i++) {
             CLK_PIN.digitalWrite(1);
@@ -111,10 +105,10 @@ module.exports = function() {
         }
     }
 
-    // The following functions will be exported.
+// The following functions will be exported.
 
     function setWhitePoint(red, green, blue) {
-        _white_point = {r:_constrain(0,red,1), g:_constrain(0,green,1), b:_constrain(0,blue,1)};
+        _white_point = {r:constrain(0,red,1), g:constrain(0,green,1), b:constrain(0,blue,1)};
     }
 
     function configureChannel(channel, num_pixels, gamma_correction=false) {
@@ -126,21 +120,23 @@ module.exports = function() {
     }
 
     function setBrightness(brightness) {
-        pixels.forEach(ch => ch.forEach(px => px[3] = _constrain(0,brightness,1)));
+        pixels.forEach(ch => ch.forEach(px => px[3] = constrain(0,brightness,1)));
     }
 
     function clearChannel(channel) {
-        pixels[channel].forEach(px => px.fill(0,0,3));
+        if (0 <= channel && channel < NUM_CHANNELS) {
+            setAllByChannel(channel, 0, 0, 0);
+        }
     }
 
     function clearIndex(index) {
-        pixels.forEach(px => px[index].fill(0,0,3));
+        if (0 <= index && index < NUM_PIXELS_PER_CHANNEL) {
+            setAllByIndex(index, 0, 0, 0);
+        }
     }
 
     function clear() {
-        for (var i=0; i< NUM_CHANNELS; i++) {
-            clearChannel(i);
-        }
+        setAll(0, 0, 0);
     }
 
     // I reckon this can be better - an ArrayBuffer(72) clocked-in using an SPI
@@ -167,57 +163,52 @@ module.exports = function() {
 
     function show() {
         for (var i = 0; i < NUM_CHANNELS; i++) {
-            _select_channel(i);
-            gamma = _gamma_table;
-            _sof();
+            selectChannel(i);
+            gamma = gammaTable;
+            writeHeader();
             pixels[i].forEach(px => {
-                var r = Math.floor(_constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255));
-                var g = Math.floor(_constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255));
-                var b = Math.floor(_constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255));
-                _write_byte(LED_SOF | LED_MAX_BR);
-                _write_byte(b);
-                _write_byte(g);
-                _write_byte(r);
+                var r = Math.floor(constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255));
+                var g = Math.floor(constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255));
+                var b = Math.floor(constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255));
+                writeByte(LED_SOF | LED_MAX_BR);
+                writeByte(b);
+                writeByte(g);
+                writeByte(r);
             });
-            _eof();
+            writeFooter();
         }
     }
 
     //There's possible unexpected behaviour in here if 'channel' is an invalid value
-    function setAll(r, g, b, brightness=null, channel=null) {
-        r = _constrain(0,r,255);
-        g = _constrain(0,g,255);
-        b = _constrain(0,b,255);
-        if (channel === null) {
-            for (var i = 0; i < NUM_CHANNELS; i++) {
-                for (var j = 0; j < getPixelCount(i); j++) {
-                    setPixel(i, j, r, g, b, brightness);
+    function setAll(r, g, b, brightness=null) {
+        r = constrain(0,r,255);
+        g = constrain(0,g,255);
+        b = constrain(0,b,255);
+        for (var channel = 0; channel < NUM_CHANNELS; channel++i++) {
+            for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
+                    setPixel(channel, index, r, g, b, brightness);
                 }
             }
-        }
-        else if (0<=channel && channel < NUM_CHANNELS) {
-            for (var i = 0; i < getPixelCount(channel); i++) {
-                setPixel(channel, i, r, g, b, brightness);
-            }
-        }
     }
 
     function setAllByChannel(channel, r, g, b, brightness=null) {
         if (0 <= channel && channel < NUM_CHANNELS) {
+            r = constrain(0,r,255);
+            g = constrain(0,g,255);
+            b = constrain(0,b,255);
             for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
-                pixels[channel][index][0] = _constrain(0,r,255);
-                pixels[channel][index][1] = _constrain(0,g,255);
-                pixels[channel][index][2] = _constrain(0,b,255);
+                setPixel(channel, index, r, g, b, brightness);
             }
         }
     }
 
     function setAllByIndex(index, r, g, b, brightness=null) {
         if (0 <= index && index < NUM_PIXELS_PER_CHANNEL) {
+            r = constrain(0,r,255);
+            g = constrain(0,g,255);
+            b = constrain(0,b,255);
             for (var channel = 0; channel < NUM_CHANNELS; channel++) {
-                pixels[channel][index][0] = _constrain(0,r,255);
-                pixels[channel][index][1] = _constrain(0,g,255);
-                pixels[channel][index][2] = _constrain(0,b,255);
+                setPixel(channel, index, r, g, b, brightness);
             }
         }
     }
@@ -228,11 +219,11 @@ module.exports = function() {
 
     function setPixel(channel, index, r, g, b, brightness=null) {
         if (brightness != null) {
-            pixels[channel][index][3] = _constrain(0,brightness,1);
+            pixels[channel][index][3] = constrain(0,brightness,1);
         }
-        pixels[channel][index][0] = _constrain(0,r,255);
-        pixels[channel][index][1] = _constrain(0,g,255);
-        pixels[channel][index][2] = _constrain(0,b,255);
+        pixels[channel][index][0] = constrain(0,r,255);
+        pixels[channel][index][1] = constrain(0,g,255);
+        pixels[channel][index][2] = constrain(0,b,255);
     }
 
     function setClearOnExit(value=true) {
