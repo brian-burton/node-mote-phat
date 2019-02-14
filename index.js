@@ -82,11 +82,16 @@ module.exports = function() {
     }
 
     function _write_byte(byte) {
-        data = byte.toString(2).padStart(8,"0");
-        for (var i=0; i<8; i++) {
-            DAT_PIN.digitalWrite(parseInt(data[i]));
-            CLK_PIN.digitalWrite(1);
-            CLK_PIN.digitalWrite(0);
+        try{
+            data = byte.toString(2).padStart(8,"0");
+            for (var i=0; i<8; i++) {
+                DAT_PIN.digitalWrite(parseInt(data[i]));
+                CLK_PIN.digitalWrite(1);
+                CLK_PIN.digitalWrite(0);
+            }
+        }
+        catch(e) {
+            console.log(byte + ": " + e);
         }
     }
 
@@ -166,9 +171,9 @@ module.exports = function() {
             gamma = _gamma_table;
             _sof();
             pixels[i].forEach(px => {
-                var r = _constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255);
-                var g = _constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255);
-                var b = _constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255);
+                var r = Math.floor(_constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255));
+                var g = Math.floor(_constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255));
+                var b = Math.floor(_constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255));
                 _write_byte(LED_SOF | LED_MAX_BR);
                 _write_byte(b);
                 _write_byte(g);
