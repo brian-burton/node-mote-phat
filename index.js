@@ -223,7 +223,7 @@ module.exports = function() {
     }
 
     function getPixel(channel, index) {
-        return {r: pixels[channel][index][0], g: pixels[channel][index][1], b: pixels[channel][index][2]};
+        return {r: pixels[channel][index][0], g: pixels[channel][index][1], b: pixels[channel][index][2], brightness: pixels[channel][index][3]};
     }
 
     function setPixel(channel, index, r, g, b, brightness=null) {
@@ -245,6 +245,7 @@ module.exports = function() {
         getPixelCount: getPixelCount,
         setBrightness: setBrightness,
         clearChannel: clearChannel,
+        clearIndex: clearIndex,
         clear: clear,
         show: show,
         setAll: setAll,
