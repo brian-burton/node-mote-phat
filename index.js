@@ -43,8 +43,6 @@ module.exports = function() {
 
 // Not sure if this is shallow copied - look out for odd errors.
     var channels = new Array(NUM_CHANNELS).fill(Object.create({pixels: NUM_PIXELS_PER_CHANNEL, gamma_correction: false}));
-    var _gpio_setup = false;
-    var _clear_on_exit = false;
 
     var pixels = new Array(NUM_CHANNELS);
 // I had a hell of a time creating deep copies of the pixel arrays I might change them to objects...
@@ -52,7 +50,6 @@ module.exports = function() {
         pixels[i] = new Array(NUM_PIXELS_PER_CHANNEL);
         for (var j = 0; j < NUM_PIXELS_PER_CHANNEL; j++) {
             pixels[i][j] = Array.of(0, 0, 0, DEFAULT_BRIGHTNESS);
-//            pixels[i][j] = Array.from([0, 0, 0, DEFAULT_BRIGHTNESS]);
         }
     }
 
@@ -62,12 +59,6 @@ module.exports = function() {
     function constrain(low, val, high) {
         return Math.min(high, Math.max(low, val));
     }
-
-//    function setGammaTable(table) {
-//        if (Array.isArray(table) && table.length == 256) {
-//            gammaTable = table;
-//        }
-//    }
 
     function selectChannel(channel) {
         for (var i = 0; i < NUM_CHANNELS; i++) {
@@ -123,9 +114,9 @@ module.exports = function() {
         pixels.forEach(ch => ch.forEach(px => px[3] = constrain(0,brightness,1)));
     }
 
-    function clearChannel(channel) {
+    function clearChannel(channel, setIndex=null) {
         if (0 <= channel && channel < NUM_CHANNELS) {
-            setAllByChannel(channel, 0, 0, 0);
+            setAllByChannel(channel, 0, 0, 0, setIndex);
         }
     }
 
@@ -162,14 +153,14 @@ module.exports = function() {
     // 1111 1111 1111 1111 1111 1111 1111 1111
 
     function show() {
-        for (var i = 0; i < NUM_CHANNELS; i++) {
-            selectChannel(i);
+        for (var channel = 0; channel < NUM_CHANNELS; channel++) {
+            selectChannel(channel);
             gamma = gammaTable;
             writeHeader();
-            pixels[i].forEach(px => {
-                var r = Math.floor(constrain(0,(px[0] * gamma[px[0]] * px[3] * _white_point.r),255));
-                var g = Math.floor(constrain(0,(px[1] * gamma[px[1]] * px[3] * _white_point.g),255));
-                var b = Math.floor(constrain(0,(px[2] * gamma[px[2]] * px[3] * _white_point.b),255));
+            pixels[channel].forEach(px => {
+                var r = Math.floor(constrain(0,(px[0] * (gamma[px[0]]/255) * px[3] * _white_point.r),255));
+                var g = Math.floor(constrain(0,(px[1] * (gamma[px[1]]/255) * px[3] * _white_point.g),255));
+                var b = Math.floor(constrain(0,(px[2] * (gamma[px[2]]/255) * px[3] * _white_point.b),255));
                 writeByte(LED_SOF | LED_MAX_BR);
                 writeByte(b);
                 writeByte(g);
@@ -184,20 +175,27 @@ module.exports = function() {
         r = constrain(0,r,255);
         g = constrain(0,g,255);
         b = constrain(0,b,255);
-        for (var channel = 0; channel < NUM_CHANNELS; channel++i++) {
+        for (var channel = 0; channel < NUM_CHANNELS; channel++) {
             for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
                     setPixel(channel, index, r, g, b, brightness);
                 }
             }
     }
 
-    function setAllByChannel(channel, r, g, b, brightness=null) {
+    function setAllByChannel(channel, r, g, b, startIndex=0, brightness=null) {
+        startIndex = constrain(1 - NUM_PIXELS_PER_CHANNEL, startIndex, NUM_PIXELS_PER_CHANNEL - 1);
         if (0 <= channel && channel < NUM_CHANNELS) {
             r = constrain(0,r,255);
             g = constrain(0,g,255);
             b = constrain(0,b,255);
-            for (var index = 0; index < NUM_PIXELS_PER_CHANNEL; index++) {
-                setPixel(channel, index, r, g, b, brightness);
+            if (startIndex >= 0) {
+                for (var index = startIndex; index < NUM_PIXELS_PER_CHANNEL; index++) {
+                    setPixel(channel, index, r, g, b, brightness);
+                }
+            } else if (startIndex < 0) {
+                for (var index = 0; index < NUM_PIXELS_PER_CHANNEL + startIndex; index++) {
+                    setPixel(channel, index, r, g, b, brightness);
+                }
             }
         }
     }
@@ -243,6 +241,8 @@ module.exports = function() {
         setAllByChannel: setAllByChannel,
         setAllByIndex: setAllByIndex,
         getPixel: getPixel,
-        setPixel: setPixel
+        setPixel: setPixel,
+        channels: channels,
+        pixels: pixels
     };
 }();

@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/brian-burton/node-mote-phat#readme",
   "dependencies": {
-    "pi-spi": "^1.0.3",
     "pigpio": "^1.2.1"
-  }
+  },
+  "devDependencies": {}
 }
